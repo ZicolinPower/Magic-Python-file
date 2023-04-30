@@ -1,0 +1,41 @@
+class ConvNetwork(Network):
+    def __init__(self, n, *, loss=CrossEntropyLoss, init='standard'):
+        super().__init__(n, loss=loss, init=init)
+        self.conv_layer = Conv2D(n_filters=20, filter_size=5, activation='relu', input_shape=(28,28,1))
+        self.pool_layer = MaxPooling2D(pool_size=2)
+        self.fc_layer = FCLayer()
+        self.P = np.random.randn(10, 100)
+        
+    def feedforward(self, x):
+        x = x.reshape((28, 28, 1))
+        # Apply the convolution layer
+        conv_out = self.conv_layer.feedforward(x)
+        # Apply the pooling layer
+        pool_out = self.pool_layer.feedforward(conv_out)
+        # Flatten the pooled output to feed into the fully connected layer
+        flat_out = flatten(pool_out)
+        # Apply the fully connected layer and ReLU activation
+        fc_out = self.fc_layer.feedforward(flat_out)
+        # Apply the output layer and softmax activation
+        output = softmax(np.dot(self.P, fc_out) + self.bprime)
+        return output
+        
+    def evaluate(self, data,lmbda=1):
+        """ Return (cost, accuracy) on the data"""
+        correct_samples = 0
+        total_cost = 0
+        n_samples = len(data)
+        
+        for x, ylabel in data:
+            # Reshape the input data to fit the input shape of the network
+            x = x.reshape((28, 28, 1))
+            y = self.feedforward(x)
+            prediction = np.argmax(y)
+            if prediction == ylabel:
+                correct_samples += 1
+            
+            total_cost += self.loss.loss(y, Network.vec_output[ylabel])
+        
+        average_cost = total_cost / n_samples
+        
+        return average_cost, correct_samples / n_samples

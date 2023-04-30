@@ -1,0 +1,182 @@
+class Network(object):
+    def __init__(self, n, m):
+        # Initialize the weights randomly
+        self.W = np.random.randn(n, 784)
+        self.b = np.random.randn(n)
+        self.V = np.random.randn(m, n)
+        self.bprime = np.random.randn(m)
+        self.U = np.random.randn(10,m)
+        self.d = np.random.randn(10)
+        
+    def feedforward(self, x):
+        # Return the output of a feedforward pass
+        a = ReLU(np.dot(self.W, x)+self.b)
+        aprime = ReLU(np.dot(self.V, a)+self.bprime)
+        return ReLU(np.dot(self.V, aprime)+self.bprime)
+    
+    def evaluate(self, data):
+        """ Return (cost, accuracy) on the data"""
+        correct_samples = 0
+        total_cost = 0
+        n_samples = len(data)
+        
+        for x, ylabel in data:
+            y = self.feedforward(x)
+            prediction = np.argmax(y)
+            if prediction == ylabel:
+                correct_samples += 1
+            
+            y[ylabel] -= 1.0
+            total_cost += np.dot(y, y)
+        
+        return total_cost / n_samples, correct_samples / n_samples
+            
+    
+    def update_mini_batch(self, mini_batch, eta):
+        # Run backprop and update weights on the minibatch
+        k = len(mini_batch)
+        delta_W = np.zeros(self.W.shape)
+        delta_b = np.zeros(self.b.shape)
+        delta_V = np.zeros(self.V.shape)
+        delta_bprime = np.zeros(self.bprime.shape)
+        delta_U = np.zeros(self.U.shape)
+        delta_d = np.zeros(self.d.shape)
+        
+        for x, y in mini_batch:
+            nabla_W, nabla_b, nabla_V, nabla_bprime, \
+            nabla_U, nabla_d= self.backprop(x, y)
+            delta_W += nabla_W
+            delta_b += nabla_b
+            delta_V += nabla_V
+            delta_bprime += nabla_bprime
+            delta_U += nabla_U
+            delta_d += nabla_d
+        
+        self.W -= eta/k * delta_W
+        self.b -= eta/k * delta_b
+        self.V -= eta/k * delta_V
+        self.bprime -= eta/k * delta_bprime
+        self.U -= eta/k * delta_U
+        self.d -= eta/k * delta_d
+
+    def SGD(self, training_data, epochs, mini_batch_size, 
+            eta, test_data=[]):
+        # Run SGD with those parameters
+        # Return a list of results for every epoch
+        # For each epoch, append pair (self.evaluate(training_data), 
+        #        self.evaluate(test_data))
+        res = []
+
+        for i in range(epochs):
+            np.random.shuffle(training_data)
+            for j in range(0, len(training_data), mini_batch_size):
+                mini_batch = training_data[j:j+mini_batch_size]
+                self.update_mini_batch(mini_batch, eta)
+                
+            res.append((self.evaluate(training_data),
+                       self.evaluate(test_data)))
+            
+            print('Epoch '+str(i)+' finished')
+        
+        return res
+        
+        
+    def backprop(self, x, y):
+        # feedforward
+        z1 = np.dot(self.W, x)+self.b
+        a1 = ReLU(z1)
+        z2 = np.dot(self.V, a1)+self.bprime
+        a2 = ReLU(z2)
+        z3 = np.dot(self.U, a2)+self.d
+        a3 = ReLU(z3)
+        
+        # backward
+        delta_3 = self.cost_derivative(a3, y) * ReLU_prime(z3)
+        nabla_d = delta_3
+        nabla_U = np.outer(delta_3, a2)
+        
+        delta_2 = np.dot(self.U.transpose(), delta_3) * ReLU_prime(z2)
+        nabla_bprime = delta_2
+        nabla_V = np.outer(delta_2, a1)
+        
+        delta_1 = np.dot(self.V.transpose(), delta_2) * ReLU_prime(z1)
+        nabla_b = delta_1
+        nabla_W = np.outer(delta_1, x)
+        
+        return nabla_W, nabla_b, nabla_V, nabla_bprime, nabla_U, nabla_d
+            
+    def cost_derivative(self, output_activations, ylabel):
+        """Return the vector of partial derivatives \partial C_x /
+        \partial a for the output activations."""
+        return (output_activations-Network.vec_output[ylabel])
+    
+    vec_output = []
+    for ylabel in range(10):
+        V = np.zeros(10)
+        V[ylabel] = 1
+        vec_output.append(V)  
+        
+  def ReLU(z):
+    return np.maximum(0,z)
+def ReLU_prime(z):
+     return np.where(z > 0, 1.0, 0.0)
+
+def load_data():
+    # Note you have to update the path below
+    file = gzip.open('/home/isaac/Pictures/neural network/mnist.pkl.gz', 'rb')
+    training_data, validation_data, test_data = pickle.load(file, encoding='latin1')
+    file.close()
+    return training_data, validation_data, test_data
+def zip_data(D):
+    return list(zip(D[0], D[1]))
+Train, Validation, Test = load_data()
+train_data = zip_data(Train)
+validation_data = zip_data(Validation)
+test_data = zip_data(Test)
+n,m=10,10
+NET = Network(n,m)
+VOR = NET.SGD(train_data, 100, 32, 3.0, test_data) #VOR = Value of the results
+
+
+def plot_VOR(res):
+    t = list(range(len(res)))
+    fig, (fig1, fig2) = plt.subplots(1, 2, figsize=(12, 6))
+    
+    Train_at = [x[0][1] for x in res]
+    Test_at = [x[1][1] for x in res]
+    fig1.plot(t, train_at, label='Train')
+    fig1.plot(t, test_at, label='Test')
+    fig1.legend()
+    
+    Train_cost = [x[0][0] for x in res]
+    Test_cost = [x[1][0] for x in res]
+    fig2.plot(t, Train_cost, label='Train')
+    fig2.plot(t, Test_cost, label='Test')
+    fig2.legend()
+np.max([x[1][1] for x in VOR])
+
+
+neuron_index = 0
+zero_activations = []
+one_activations = []
+for x, ylabel in test_data:
+    if ylabel == 0:
+        a=ReLU((NET.W@x)+NET.b)
+        aprime = ((NET.V@a)+NET.bprime)[neuron_index]
+        zero_activations.append(aprime)
+    if ylabel == 1:
+        a=ReLU((NET.W@x)+NET.b)
+        aprime = ((NET.V@a)+NET.bprime)[neuron_index]
+        one_activations.append(aprime) 
+[len(zero_activations),len(one_activations)]
+neuron_weights = np.reshape(NET.W[neuron_index], (28, 28))
+plt.imshow(neuron_weights)
+plt.colorbar()
+plt.show()
+
+neuron_weights = np.reshape(NET.W[neuron_index], (28, 28))
+plt.imshow(neuron_weights, cmap="gray")
+plt.show()
+
+Image= np.reshape(Train[0][35], (28,28))
+plt.imshow(1-Image, cmap="gray")

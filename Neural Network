@@ -1,0 +1,173 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import pickle
+import gzip
+
+
+IMG_LEN = 28
+IMG_SIZE = IMG_LEN**2
+
+class QuadraticLoss(object):
+    @staticmethod
+    def loss(a, y):
+        return 0.5*np.dot(a-y, a-y)
+    @staticmethod
+    def loss_derivative(a, y):
+        return a-y
+
+class CrossEntropyLoss(object):
+    @staticmethod
+    def loss(a, y):
+        return np.sum(np.nan_to_num(-y*np.log(a)-(1-y)*np.log(1-a)))
+    @staticmethod
+    def loss_derivative(a, y):
+        return (a-y)/(a*(1.0-a))
+
+def sigmoid(z):
+    return 1 / (1.0+np.exp(-z))
+def sigmoid_prime(z):
+    return sigmoid(z)*(1-sigmoid(z))
+
+class Network(object):
+    def __init__(self, n, *, loss=QuadraticLoss, init='standard'):
+        # Initialize the weights randomly
+        if init == 'standard':
+            self.W = np.random.randn(n, IMG_SIZE)
+            self.V = np.random.randn(10, n)
+        elif init == 'normalized':
+            self.W = np.random.randn(n, IMG_SIZE) / np.sqrt(IMG_SIZE)
+            self.V = np.random.randn(10, n) / np.sqrt(n)
+        self.b = np.random.randn(n)
+        self.bprime = np.random.randn(10)
+        self.loss = loss
+
+        
+
+    def feedforward(self, x):
+        # Return the output of a feedforward pass
+        a = sigmoid(np.dot(self.W, x)+self.b)
+        return sigmoid(np.dot(self.V, a)+self.bprime)
+
+   
+    def evaluate(self, data, *, lmbda=0):
+        """ Return (cost, accuracy) on the data"""
+        correct_samples = 0
+        total_cost = 0
+        n_samples = len(data)
+
+        
+        for x, ylabel in data:
+            y = self.feedforward(x)
+            prediction = np.argmax(y)
+            if prediction == ylabel:
+                correct_samples += 1
+
+            
+
+            total_cost += self.loss.loss(y, Network.vec_output[ylabel])
+
+        
+
+        average_cost = total_cost / n_samples
+        average_cost += 0.5*lmbda*(np.linalg.norm(self.W)**2 + np.linalg.norm(self.V)**2)
+        return average_cost, correct_samples / n_samples
+
+            
+
+    
+
+    def update_mini_batch(self, mini_batch, eta, lmbda):
+        # Run backprop and update weights on the minibatch
+        k = len(mini_batch)
+        delta_W = np.zeros(self.W.shape)
+        delta_b = np.zeros(self.b.shape)
+        delta_V = np.zeros(self.V.shape)
+        delta_bprime = np.zeros(self.bprime.shape)
+
+        
+
+        for x, y in mini_batch:
+            nabla_W, nabla_b, nabla_V, nabla_bprime = self.backprop(x, y)
+            delta_W += nabla_W
+            delta_b += nabla_b
+            delta_V += nabla_V
+            delta_bprime += nabla_bprime
+
+        self.W -= eta*(lmbda*self.W + 1/k * delta_W)
+        self.b -= eta/k * delta_b
+        self.V -= eta*(lmbda*self.V + 1/k * delta_V)
+        self.bprime -= eta/k * delta_bprime
+
+​
+
+    def SGD(self, training_data, *,mini_batch_size, eta, lmbda=0, test_data=[]):
+        # Run SGD with those parameters
+        # Return a list of results for every epoch
+        # For each epoch, append pair (self.evaluate(training_data), 
+        #        self.evaluate(test_data))
+        res = []
+        k=0
+        while eta > 0.001:
+            acc_check = []
+            i=0
+            while True:
+                if i > 6:
+                    if all(acc_check[k] - acc_check[k-1] < 0.005 for k in range(i-1, i-5, -1)):
+                        break
+                np.random.shuffle(training_data)
+                for j in range(0, len(training_data), mini_batch_size):
+                    mini_batch = training_data[j:j+mini_batch_size]
+                    self.update_mini_batch(mini_batch, eta, lmbda)
+                res.append((self.evaluate(training_data),self.evaluate(test_data)))
+                print('Epoch '+str(i)+' finished')
+                i=i+1
+                acc_check.append((self.evaluate(training_data)[1]))
+            eta = eta/30
+            k=k+1
+        return res
+
+
+    def backprop(self, x, ylabel):
+        # feedforward
+        z1 = np.dot(self.W, x)+self.b
+        a1 = sigmoid(z1)
+        z2 = np.dot(self.V, a1)+self.bprime
+        a2 = sigmoid(z2)
+
+        
+        # backward
+        delta_2 = self.loss.loss_derivative(a2, Network.vec_output[ylabel]) * sigmoid_prime(z2)
+        nabla_bprime = delta_2
+        nabla_V = np.outer(delta_2, a1)
+        delta_1 = np.dot(self.V.transpose(), delta_2) * sigmoid_prime(z1)
+        nabla_b = delta_1
+        nabla_W = np.outer(delta_1, x)
+        return nabla_W, nabla_b, nabla_V, nabla_bprime
+
+    vec_output = []
+    for ylabel in range(10):
+        V = np.zeros(10)
+        V[ylabel] = 1
+        vec_output.append(V)
+
+def load_data():
+    # Note you have to update the path below
+    f = gzip.open('/home/isaac/Downloads/mnist.pkl.gz', 'rb')
+    training_data, validation_data, test_data = pickle.load(f, encoding='latin1')
+    f.close()
+    return training_data, validation_data, test_data
+
+TRAIN, VALIDATION, TEST = load_data()
+def zip_data(D):
+    return list(zip(D[0], D[1]))
+train_data = zip_data(TRAIN)
+validation_data = zip_data(VALIDATION)
+
+
+## Cross-entropy loss, $\eta=3.0$
+test_data = zip_data(TEST)
+results = NET.SGD(train_data, 
+                  mini_batch_size=10, 
+                  eta=3.0, 
+                  test_data=test_data)
+plot_results(results)

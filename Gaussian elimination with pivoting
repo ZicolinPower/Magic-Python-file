@@ -1,0 +1,94 @@
+import numpy as np
+import logging
+from logging import debug, error
+import copy # Hint: it might be necessary to use the deepcopy function
+
+
+def forward_solve(a, b):
+    '''Forward steps in Gaussian elimination with pivoting.'''
+    n = a.shape[0]
+    for j in range(n-1):
+        # Implement pivoting in the forward solve function
+        max_row = j
+        for i in range(j+1, n):
+            if abs(a[i, j]) > abs(a[max_row, j]):
+                max_row = i
+        if max_row != j:
+            a[[j, max_row], :] = a[[max_row, j], :]
+            b[[j, max_row]] = b[[max_row, j]]
+
+        d = a[j, j]
+        if d == 0: 
+            error('Zero diagonal element encountered. Algorithm failed.')
+            raise ValueError('Zero diagonal element encountered. Algorithm failed.')
+        for k in range(j+1, n):
+            mu = - a[k, j]/d
+            a[k] = a[k] + mu*a[j]
+            b[k] = b[k] + mu*b[j]
+        debug(f'After forward step for col {j+1} obtained:\n'
+              f'{np.block([a,b[:,np.newaxis]])}')
+     
+ def backward_solve(a, b, x):
+    '''Backward steps in Gaussian elimination'''
+    n = a.shape[0]
+    for j in range(n-1,-1,-1):  
+        y = b[j]
+        for k in range(j+1, n):
+            y -= a[j,k]*x[k]        
+        x[j] = y/a[j,j]
+        debug(f'Solved x{j+1} = {x[j]}')
+    
+def solve_demo(a, b):
+    '''Solve ax = b'''
+    # Take copies as we don't want to change the original matrices
+    a, b = a.copy(), b.copy() 
+    forward_solve(a, b)
+    n = a.shape[0]
+    x = np.zeros(n)
+    backward_solve(a, b, x)
+    return x
+
+eps = np.finfo(float).eps
+
+def assert_solve(a, b):
+    x = solve_demo(a,b)
+    xtrue = np.linalg.solve(a, b)
+    print(f'{    x = }')
+    print(f'{xtrue = }')
+    norm_xtrue = np.linalg.norm(xtrue)
+    if norm_xtrue > eps:
+        # Check that relative error is small
+        assert(np.linalg.norm(x - xtrue) / norm_xtrue < 10*eps)
+    else:
+        # Check that absolute error is small
+        assert(np.linalg.norm(x - xtrue) < 1000*eps)
+
+# Test 1: this system doesn't require pivoting 
+a = np.array([
+[1,2,3],
+[2,3,4],
+[3,4,6],
+], dtype=float)
+b = np.array([1, 1, 0], dtype=float)
+assert_solve(a, b)    
+
+# Test 2: this system requires pivoting 
+a = np.array([
+[1,2,3],
+[2,4,5],
+[3,5,6],
+], dtype=float)
+b = np.array([1, 0, 0], dtype=float)
+assert_solve(a, b)    
+
+# Test 3: this system requires pivoting, 
+# and the sketched code fails to recognize this 
+a = np.array([
+[1, 0, 0, 0.1, 0],
+[0, 1, 0, 0.1, 0],
+[0, 0, 1, 0.1, 0],
+[1, 1, 1, 0.3, 1],
+[0, 0, 0, 1.0, 0]
+])
+b = np.array([0, 0, 0, 1, 1], dtype=float)
+assert_solve(a, b)

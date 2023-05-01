@@ -1,0 +1,44 @@
+import numpy as np
+
+def horner(cs, x):
+    '''Evaluate the polynomial with coefficients cs at x using Horner's Rule
+        Here cs is a numpy vector and x is a scalar.
+    '''
+    
+    res = cs[0]
+    for i in range(1, len(cs)):
+        res = res * x + cs[i]
+    return res
+    
+    
+ eps = np.finfo(float).eps
+def assert_horner(cs, x, y):
+    if not isinstance(cs, np.ndarray):
+        cs = np.atleast_1d(cs)
+    if np.abs(y) > eps:
+        # Check that relative error is small
+        assert(np.abs(horner(cs, x) - y) / np.abs(y) < 10*eps)
+    else:
+        # Check that absolute error is small
+        assert(np.abs(horner(cs, x) - y) < 1000*eps)
+
+
+# Test 1: constant polynomial 0 is 0 at any point
+assert_horner(0, 1, 0) 
+
+# Test 2: constant polynomial 1 is 1 at any point
+assert_horner(1, 0, 1) 
+
+# Test 3: polynomial x is 0 at 0
+assert_horner([1, 0], 0, 0) 
+
+# Test 4: polynomial x is 1 at 1
+assert_horner([1, 0], 1, 1)
+
+# Test 5: polynomial x^5 is 1 at 1 
+# (Here + joins two lists and [0]*5 repeats the list 5 times producing [0, ..., 0])
+assert_horner([1] + [0]*5, 1, 1) 
+
+# Test 6: a bit more complicated polynomial, 
+# but this is also easy to figure out without any actual computations  
+assert_horner([1, 3, 2, 1, 0], 0.1, 0.1231) 

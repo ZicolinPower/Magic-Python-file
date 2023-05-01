@@ -1,0 +1,31 @@
+Task 1 (5 P)
+
+Let three machine numbers $x_1, x_2 , x_3 > 0$ be given in floating point notation
+with $x_1 \gg x_2$ and $x_1 \gg x_3$ . Which of the two algorithms for calculating
+$x_1 + x_2 + x_3$ is numerically more accurate and why?
+1. $(x_1 + x_2 ) + x_3$
+2. $x_1 + (x_2 + x_3 )$
+
+
+# Solution
+
+import numpy as np
+def fl(x, precision = 12):
+    '''Simulate decimal floating-point rounding with given precision'''
+    return float(np.format_float_positional(x, 
+        precision = precision, fractional = False))
+    
+def oplus(x, y):
+    return fl(x + y)
+
+
+
+a=0.244627362587e4
+b=0.002535261789e-3
+c=0.000362784399e-2
+
+print(f'''
+(1)  {oplus(oplus(a, b), c) = } 
+(2)  {oplus(a, oplus(b, c)) = }
+optimal = {fl(a + b + c)}
+''')

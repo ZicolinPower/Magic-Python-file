@@ -1,0 +1,71 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import cm
+
+def u(x,y):
+    return (np.sin(np.pi * x) * np.sin(np.pi * y))
+
+def f(x,y):
+    return 2 * np.pi**2 * (np.sin(np.pi * x) * np.sin(np.pi * y))
+
+def create_matrix(h):
+    n = int(1/h) - 1
+    A = np.zeros((n*n, n*n))
+    for i in range(n):
+        for j in range(n):
+            k = i + j*n
+            A[k,k] = -4
+            if i > 0:
+                A[k,k-1] = 1
+            if i < n-1:
+                A[k,k+1] = 1
+            if j > 0:
+                A[k,k-n] = 1
+            if j < n-1:
+                A[k,k+n] = 1
+    return A
+
+def create_right_hand_side(h):
+    n = int(1/h) - 1
+    b = np.zeros(n*n)
+    for i in range(n):
+        for j in range(n):
+            k = i + j*n
+            x = (i+1)*h
+            y = (j+1)*h
+            b[k] = f(x, y) * h**2
+    return b
+
+def compute_error(u_analytical, u_numerical, h):
+    norm = np.linalg.norm(u_analytical.flatten() - u_numerical, ord=2) / np.sqrt(u_analytical.size)
+    return norm
+
+
+def plot_solution(u, h):
+    x = np.linspace(h, 1-h, int(1/h)-1)
+    y = np.linspace(h, 1-h, int(1/h)-1)
+    X, Y = np.meshgrid(x, y)
+    fig = plt.figure(figsize=(16,12))
+    ax = fig.gca(projection='3d')
+    surf = ax.plot_surface(X, Y, u, cmap=cm.coolwarm, linewidth=0, antialiased=False)
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_zlabel('u(x,y)')
+    plt.show()
+
+h_values = [1/2, 1/4, 1/8, 1/16, 1/32, 1/64]
+errors = []
+
+for h in h_values:
+    A = create_matrix(h)
+    b = create_right_hand_side(h)
+    u_numerical = np.linalg.solve(A, b)
+    u_analytical = u(np.linspace(h, 1-h, int(1/h)-1)[:,None], np.linspace(h, 1-h, int(1/h)-1)[None,:])
+    error = compute_error(u_analytical, u_numerical, h)
+    errors.append(error)
+    print(f"h={h:.4f}, error={error:.6f}")
+    if h == 1/64:
+        plot_solution(u_numerical.reshape((int(1/h)-1, int(1/h)-1)), h)
+
+p = np.polyfit(np.log(h_values), np.log(errors), 1)
+print(f"Convergence rate: {p[0]:.2f}")

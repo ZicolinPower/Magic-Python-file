@@ -1,0 +1,49 @@
+import numpy as np
+from scipy import stats
+
+def brownian_motion(N, T, h):
+    """
+    Simulates a Brownian motion
+    :param int N : the number of discrete steps
+    :param int T: the number of continuous time steps
+    :param float h: the variance of the increments
+    """
+    dt = 1. * T/N  # the normalizing constant
+    random_increments = np.random.normal(0.0, 1.0 * h, N)*np.sqrt(dt)  # the epsilon values
+    brownian_motion = np.cumsum(random_increments)  # calculate the brownian motion
+    brownian_motion = np.insert(brownian_motion, 0, 0.0) # insert the initial condition
+
+    return brownian_motion, random_increments
+
+num_simulations = 10000  # how many times to repeat
+N = 50 # the number of discrete steps
+T = 1 # the number of continuous time steps
+h = 1 # the variance of the increments
+Ns, Ts, hs = 20000, 10.0, 1.0 # discrete steps, continuous steps, veriance
+dts = 1.0 * T/N  # total number of time steps
+u = 2.  # the difference in time points
+t = int(np.floor((np.random.uniform(low=u+0.01, high=1. * T - u)/T) * N)) # random starting point
+
+# initialize the means
+rand_val_t = np.zeros(num_simulations)
+rand_val_t_plus_u = np.zeros(num_simulations)
+rand_val_t_minus_u = np.zeros(num_simulations)
+
+for i in range(num_simulations):
+    # generate a brownian motion
+    Xs, _ = brownian_motion(Ns, Ts, hs)
+
+    # store the means at the two points
+    rand_val_t[i] = Xs[t]
+    rand_val_t_plus_u[i] = Xs[t + int(u*Ns/Ts)]
+
+# calculate the difference
+diff = rand_val_t_plus_u - rand_val_t
+
+# print stats
+print('The mean is: {0}'.format(np.mean(diff)))
+print('The variance is: {0}'.format(np.var(diff)))
+
+# make normality test with null hypothesis: x comes from a normal distribution
+k2, p = stats.normaltest(diff)
+print("Null hypothesis can be rejected") if p < 1e-3 else print("Null hypothesis cannot be rejected")
